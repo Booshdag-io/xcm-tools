@@ -4,6 +4,7 @@ import {
   getNativeAssetSymbol,
   Parents,
   RoutingResolutionError,
+  ValidationError,
   type TLocation,
 } from '@paraspell/sdk-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -150,6 +151,16 @@ describe('AssetHubExchange', () => {
       const result: TSingleSwapResult<unknown> = await instance.swapCurrency(opts, 0n);
       expect(result).toEqual({ tx: dummyTx, amountOut: 2000n });
       expect(mockPolkadotApi.queryRuntimeApi).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([undefined, 'not-a-number', '-1', '100'])('should reject invalid slippage percentage %s', async (slippagePct) => {
+      vi.mocked(mockPolkadotApi.queryRuntimeApi).mockResolvedValueOnce(2000n);
+      vi.mocked(getNativeAssetSymbol).mockReturnValue('NATIVE');
+
+      await expect(
+        instance.swapCurrency({ ...baseSwapOptions, slippagePct } as TGenericSwapOptions<unknown, unknown, unknown>, 0n),
+      ).rejects.toThrow(ValidationError);
+      expect(mockPolkadotApi.deserializeExtrinsics).not.toHaveBeenCalled();
     });
 
     it('should throw RoutingResolutionError if queryRuntimeApi returns undefined', async () => {
